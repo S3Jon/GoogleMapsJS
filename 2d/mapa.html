@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ruta de Barco</title>
+        <script src="https://maps.googleapis.com/maps/api/js?key=(TUAPIKEYVAAQUI)&libraries=geometry" async defer></script>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: Arial, sans-serif;
+            }
+            #map {
+                height: 100vh;
+                width: 100%;
+                position: absolute;
+            }
+            #menu {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                width: 300px;
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                padding: 15px;
+                max-height: calc(100vh - 40px);
+                overflow-y: auto;
+            }
+            .barco-info {
+                margin-bottom: 20px;
+                padding: 10px;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+            .barco-info:hover {
+                background-color: #f5f5f5;
+            }
+            .barco-info.selected {
+                background-color: #e0e0e0;
+            }
+            .barco-info h3 {
+                margin: 0 0 10px 0;
+            }
+            .barco-info p {
+                margin: 5px 0;
+                font-size: 0.9em;
+            }
+            .filter {
+                margin-bottom: 10px;
+            }
+            .results-count {
+                margin-top: 10px;
+                font-weight: bold;
+            }
+        </style>
+        <script>
+            let map;
+            let rutasBarcos = [];
+            let rutasBarcosOriginal = [];
+            let polylines = [];
+            let markers = [];
+            let selectedBarco = null;
+
+            function initMap() {
+                const mapCenter = { lat: 43.3, lng: -2.9 };
+                map = new google.maps.Map(document.getElementById("map"), {
+                    center: mapCenter,
+                    zoom: 3,
+                    mapId: '8d193001f940fde3'
+                });
+
+                const storedData = localStorage.getItem('rutasBarcos');
+                if (storedData) {
+                    rutasBarcos = JSON.parse(storedData).barcos;
+                    rutasBarcosOriginal = JSON.parse(storedData).barcos;
+                    console.log('Rutas de barcos cargadas:', rutasBarcos);
+                    dibujarRutas();
+                    crearMenu();
+                } else {
+                    console.error('No se encontraron datos en localStorage');
+                }
+
+                const GasLiqCoords = [
+                    { lat: 43.35705546920213, lng: -3.0896010775967166 },
+                    { lat: 43.36062881390658, lng: -3.0869645904657084 },
+                    { lat: 43.36088177885906, lng: -3.087599573070587 },
+                    { lat: 43.36029363376947, lng: -3.0882171589119665 },
+                    { lat: 43.36242737267712, lng: -3.09300343734516 },
+                    { lat: 43.36387638779428, lng: -3.0977747939725453 },
+                    { lat: 43.363173839332404, lng: -3.1017005937292548 },
+                    { lat: 43.36497410347815, lng: -3.104780836615288 },
+                    { lat: 43.367934929361944, lng: -3.100076749552852 },
+                    { lat: 43.36753149749288, lng: -3.0997013379157417 },
+                    { lat: 43.3682078376342, lng: -3.098722003210238 },
+                    { lat: 43.36856380310056, lng: -3.0990647703571637 },
+                    { lat: 43.37046225030629, lng: -3.095898254809366 },
+                    { lat: 43.36988085716191, lng: -3.095326976231155 },
+                    { lat: 43.370770742364655, lng: -3.0940211966238156 },
+                    { lat: 43.37144704638658, lng: -3.094869953368586 },
+                    { lat: 43.362232839693434, lng: -3.110239546374722 },
+                    { lat: 43.36112922477671, lng: -3.1088521555419244 },
+                    { lat: 43.36314657018544, lng: -3.105946795915594 },
+                    { lat: 43.36185761499039, lng: -3.1012858986969185 },
+                    { lat: 43.36012594450618, lng: -3.098163807428673 },
+                    { lat: 43.35705546920213, lng: -3.0896010775967166 }
+                ];
+
+                const GasSolidCoords = [
+                    { lat: 43.35705546920213, lng: -3.0896010775967166 },
+                    { lat: 43.36062881390658, lng: -3.0869645904657084 },
+                    { lat: 43.36377119162692, lng: -3.081699151320776 },
+                    { lat: 43.363438931006726, lng: -3.0773900786165553 },
+                    { lat: 43.36281000413621, lng: -3.0775043343321973 },
+                    { lat: 43.363023602672435, lng: -3.0816665068305915 },
+                    { lat: 43.3604129023211, lng: -3.0860898352504544 },
+                    { lat: 43.35831239361264, lng: -3.080132215826164 },
+                    { lat: 43.356389830433514, lng: -3.081258450737494 },
+                    { lat: 43.35530984538523, lng: -3.0793977147970355 },
+                    { lat: 43.35474017519904, lng: -3.079854737659604 },
+                    { lat: 43.35532171345724, lng: -3.084522899755843 },
+                    { lat: 43.35705546920213, lng: -3.0896010775967166 }
+                ]
+
+                const zonaIndustrialCoords = [
+                    { lat: 43.373285667551926, lng: -3.097296086028233 },
+                    { lat: 43.36458036229337, lng: -3.072740025351496 },
+                    { lat: 43.35474017519904, lng: -3.079854737659604 },
+                    { lat: 43.35532171345724, lng: -3.084522899755843 },
+                    { lat: 43.356314515594256, lng: -3.088675792425256 },
+                    { lat: 43.36102782195387, lng: -3.10105716063321 },
+                    { lat: 43.36244759714764, lng: -3.1059895756189717 },
+                    { lat: 43.360647258026894, lng: -3.109331538488786 },
+                    { lat: 43.36247687054066, lng: -3.1113246367046905 }
+                ]
+
+                const GasLiq = new google.maps.Polygon({
+                    paths: GasLiqCoords,
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: '#FF0000',
+                    fillOpacity: 0.35
+                });
+
+                GasLiq.setMap(map);
+
+                const GasSol = new google.maps.Polygon({
+                    paths: GasSolidCoords,
+                    strokeColor: '#00FF00',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: '#00FF00',
+                    fillOpacity: 0.35
+                });
+
+                GasSol.setMap(map);
+
+                const ZonaIndsCoords = new google.maps.Polygon({
+                    paths: zonaIndustrialCoords,
+                    strokeColor: '#0000FF',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: '#0000FF',
+                    fillOpacity: 0.0
+                });
+
+                ZonaIndsCoords.setMap(map);
+                
+            }
+
+            function calcularDiferenciaTiempo(timestampInicio, timestampFin) {
+                const inicio = new Date(timestampInicio.replace(" ", "T"));
+                const fin = new Date(timestampFin.replace(" ", "T"));
+                const diferenciaMs = fin - inicio;
+                const diferenciaHoras = diferenciaMs / (1000 * 60 * 60);
+                return diferenciaHoras.toFixed(1);
+            }
+
+            function limpiarMapa() {
+                polylines.forEach(line => line.setMap(null));
+                markers.forEach(marker => marker.setMap(null));
+                polylines = [];
+                markers = [];
+            }
+
+            function dibujarRutas() {
+                limpiarMapa();
+
+                rutasBarcos.forEach((barco, index) => {
+                    // Dibujar la ruta
+                    const ruta = new google.maps.Polyline({
+                        path: barco.ruta,
+                        geodesic: true,
+                        strokeColor: barco.color,
+                        strokeOpacity: selectedBarco === null || selectedBarco === index ? 1.0 : 0.3,
+                        strokeWeight: 2,
+                    });
+
+                    ruta.setMap(map);
+                    polylines.push(ruta);
+
+                    // Hacer la ruta clickeable
+                    ruta.addListener('click', () => {
+                        seleccionarBarco(index, false);
+                    });
+
+                    // Añadir marcador de inicio
+                    const startMarker = new google.maps.Marker({
+                        position: barco.ruta[0],
+                        map: map,
+                        icon: {
+                            path: google.maps.SymbolPath.BACKWARD_OPEN_ARROW,
+                            scale: 5,
+                            strokeWeight: 2,
+                            strokeColor: barco.color,
+                            fillColor: barco.color,
+                            fillOpacity: selectedBarco === null || selectedBarco === index ? 1.0 : 0.3,
+                            rotation: 0
+                        },
+                        title: `Inicio - ${barco.nombre}\n${barco.ruta[0].timestamp}`
+                    });
+                    markers.push(startMarker);
+
+                    // Añadir marcador de fin
+                    const endMarker = new google.maps.Marker({
+                        position: barco.ruta[barco.ruta.length - 1],
+                        map: map,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 7,
+                            strokeWeight: 2,
+                            strokeColor: barco.color,
+                            fillColor: barco.color,
+                            fillOpacity: selectedBarco === null || selectedBarco === index ? 1.0 : 0.3
+                        },
+                        title: `Fin - ${barco.nombre}\n${barco.ruta[barco.ruta.length - 1].timestamp}`
+                    });
+                    markers.push(endMarker);
+                });
+            }
+
+            function calcularDistancia(ruta) {
+                let distanciaTotal = 0;
+                for (let i = 1; i < ruta.length; i++) {
+                    distanciaTotal += google.maps.geometry.spherical.computeDistanceBetween(
+                        new google.maps.LatLng(ruta[i - 1].lat, ruta[i - 1].lng),
+                        new google.maps.LatLng(ruta[i].lat, ruta[i].lng)
+                    );
+                }
+                return (distanciaTotal / 1000).toFixed(2);
+            }
+
+            function crearMenu() {
+                const menu = document.getElementById('menu');
+                menu.innerHTML = `
+                    <div class="filter">
+                        <label for="origen">Origen:</label>
+                        <input type="text" id="origen">
+                    </div>
+                    <div class="filter">
+                        <label for="destino">Destino:</label>
+                        <input type="text" id="destino">
+                    </div>
+                    <div class="filter">
+                        <label for="fechaSalida">Fecha de Salida:</label>
+                        <input type="date" id="fechaSalida">
+                    </div>
+                    <div class="filter">
+                        <label for="fechaLlegada">Fecha de Llegada:</label>
+                        <input type="date" id="fechaLlegada">
+                    </div>
+                    <div class="filter">
+                        <label for="tipo">Tipo:</label>
+                        <input type="text" id="tipo">
+                    </div>
+                    <button onclick="aplicarfiltros()">Filtrar</button>
+                    <div id="resultsCount" class="results-count"></div>
+                `;
+
+                mostrarRutasFiltradas(rutasBarcos);
+            }
+
+            function aplicarfiltros() {
+                const origen = document.getElementById('origen').value.toLowerCase();
+                const destino = document.getElementById('destino').value.toLowerCase();
+                const fechaSalida = document.getElementById('fechaSalida').value;
+                const fechaLlegada = document.getElementById('fechaLlegada').value;
+                const tipo = document.getElementById('tipo').value.toLowerCase();
+
+                const rutasFiltradas = rutasBarcosOriginal.filter((barco) => {
+                    const fechaSalidaBarco = barco.ruta[0].timestamp.split(" ")[0];
+                    const fechaLlegadaBarco = barco.ruta[barco.ruta.length - 1].timestamp.split(" ")[0];
+                    return (!origen || barco.origen.toLowerCase().includes(origen)) &&
+                           (!destino || barco.destino.toLowerCase().includes(destino)) &&
+                           (!fechaSalida || fechaSalidaBarco === fechaSalida) &&
+                           (!fechaLlegada || fechaLlegadaBarco === fechaLlegada) &&
+                           (!tipo || barco.tipo.toLowerCase().includes(tipo));
+                });
+
+                mostrarRutasFiltradas(rutasFiltradas);
+            }
+
+            function mostrarRutasFiltradas(rutas) {
+                const menu = document.getElementById('menu');
+                const origen = document.getElementById('origen').value;
+                const destino = document.getElementById('destino').value;
+                const fechaSalida = document.getElementById('fechaSalida').value;
+                const fechaLlegada = document.getElementById('fechaLlegada').value;
+                const tipo = document.getElementById('tipo').value;
+
+                menu.innerHTML = `
+                    <div class="filter">
+                        <label for="origen">Origen:</label>
+                        <input type="text" id="origen" value="${origen}">
+                    </div>
+                    <div class="filter">
+                        <label for="destino">Destino:</label>
+                        <input type="text" id="destino" value="${destino}">
+                    </div>
+                    <div class="filter">
+                        <label for="fechaSalida">Fecha de Salida:</label>
+                        <input type="date" id="fechaSalida" value="${fechaSalida}">
+                    </div>
+                    <div class="filter">
+                        <label for="fechaLlegada">Fecha de Llegada:</label>
+                        <input type="date" id="fechaLlegada" value="${fechaLlegada}">
+                    </div>
+                    <div class="filter">
+                        <label for="tipo">Tipo:</label>
+                        <input type="text" id="tipo" value="${tipo}">
+                    </div>
+                    <button onclick="aplicarfiltros()">Filtrar</button>
+                    <div id="resultsCount" class="results-count">Hay ${rutas.length} resultados</div>
+                `;
+
+                if (rutas.length === 0) {
+                    limpiarMapa();
+                } else {
+                    rutasBarcos = rutas; // Actualizar rutasBarcos con las rutas filtradas
+                    rutas.forEach((barco, index) => {
+                        // Calcular distancia
+                        const distancia = calcularDistancia(barco.ruta);
+                        const barcoInfo = document.createElement('div');
+                        barcoInfo.className = `barco-info ${selectedBarco === index ? 'selected' : ''}`;
+                        const flagOffset = 0x1F1E6;
+                        const asciiOffset = 0x41;
+
+                        const firstChar = String.fromCodePoint(barco.pabellon.charCodeAt(0) - asciiOffset + flagOffset);
+                        const secondChar = String.fromCodePoint(barco.pabellon.charCodeAt(1) - asciiOffset + flagOffset);
+
+                        const flag = firstChar + secondChar;
+
+                        barcoInfo.innerHTML = `
+                            <h3>${flag} ${barco.nombre}</h3>
+                            <p><strong>Origen:</strong> ${barco.origen}</p>
+                            <p><strong>Destino:</strong> ${barco.destino}</p>
+                            <p><strong>Fecha de Salida:</strong> ${barco.ruta[0].timestamp}</p>
+                            <p><strong>Fecha de Llegada:</strong> ${barco.ruta[barco.ruta.length - 1].timestamp}</p>
+                            <p><strong>Diferencia de Tiempo:</strong> ${calcularDiferenciaTiempo(barco.ruta[0].timestamp, barco.ruta[barco.ruta.length - 1].timestamp)}h</p>
+                            <p><strong>Distancia Total:</strong> ${distancia} km</p>
+                            <p><strong>Tipo:</strong> ${barco.tipo}</p>
+                        `;
+                        barcoInfo.onclick = () => seleccionarBarco(index, true);
+                        menu.appendChild(barcoInfo);
+                    });
+
+                    dibujarRutas();
+                }
+            }
+
+            function seleccionarBarco(index, fromMenu) {
+                selectedBarco = selectedBarco === index ? null : index;
+                dibujarRutas();
+                if (!fromMenu) {
+                    mostrarRutasFiltradas(rutasBarcos);
+                }
+            }
+
+            window.onload = initMap;
+        </script>
+    </head>
+    <body>
+        <div id="map"></div>
+        <div id="menu"></div>
+    </body>
+</html>

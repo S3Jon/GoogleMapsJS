@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Subir JSON de Rutas</title>
+        <style>
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background-color: #f0f0f0;
+            }
+            #file-input-container {
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                text-align: center;
+            }
+            #file-input-container label {
+                display: inline-block;
+                padding: 10px 20px;
+                background-color: #4285f4;
+                color: white;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+            #file-input-container label:hover {
+                background-color: #3367d6;
+            }
+            #file-input {
+                display: none;
+            }
+            #error-message {
+                color: red;
+                margin-top: 10px;
+                display: none;
+            }
+        </style>
+        <script>
+            function handleFileSelect(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.barcos && Array.isArray(data.barcos)) {
+                            localStorage.setItem('rutasBarcos', e.target.result);
+                            window.location.href = 'mapa.html';
+                        } else {
+                            throw new Error('Formato de JSON inválido');
+                        }
+                    } catch (error) {
+                        console.error('Error al procesar el archivo:', error);
+                        document.getElementById('error-message').textContent = 'Error al procesar el archivo. Asegúrate de que sea un JSON válido con el formato correcto.';
+                        document.getElementById('error-message').style.display = 'block';
+                    }
+                };
+
+                reader.onerror = function() {
+                    document.getElementById('error-message').textContent = 'Error al leer el archivo.';
+                    document.getElementById('error-message').style.display = 'block';
+                };
+
+                reader.readAsText(file);
+            }
+        </script>
+    </head>
+    <body>
+        <div id="file-input-container">
+            <label for="file-input">Cargar JSON de rutas</label>
+            <input type="file" id="file-input" accept=".json" onchange="handleFileSelect(event)">
+            <div id="error-message"></div>
+        </div>
+    </body>
+</html>

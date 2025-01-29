@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Ruta de Barco 3D</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+      }
+      gmp-map-3d {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+      }
+      #menu {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 300px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        padding: 15px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        z-index: 1;
+      }
+      .barco-info {
+        margin-bottom: 20px;
+        padding: 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      .barco-info:hover {
+        background-color: #f5f5f5;
+      }
+      .barco-info.selected {
+        background-color: #e0e0e0;
+      }
+      .barco-info h3 {
+        margin: 0 0 10px 0;
+      }
+      .barco-info p {
+        margin: 5px 0;
+        font-size: 0.9em;
+      }
+      .filter {
+        margin-bottom: 10px;
+      }
+      .results-count {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <gmp-map-3d center="43.3,-2.9" range="2000" tilt="45" heading="0">
+      <!-- Las polilíneas y marcadores se agregarán aquí dinámicamente -->
+    </gmp-map-3d>
+    
+    <div id="menu">
+      <div class="filter">
+        <label for="origen">Origen:</label>
+        <input type="text" id="origen">
+      </div>
+      <div class="filter">
+        <label for="destino">Destino:</label>
+        <input type="text" id="destino">
+      </div>
+      <div class="filter">
+        <label for="fechaSalida">Fecha de Salida:</label>
+        <input type="date" id="fechaSalida">
+      </div>
+      <div class="filter">
+        <label for="fechaLlegada">Fecha de Llegada:</label>
+        <input type="date" id="fechaLlegada">
+      </div>
+      <div class="filter">
+        <label for="tipo">Tipo:</label>
+        <input type="text" id="tipo">
+      </div>
+      <button onclick="aplicarFiltros()">Filtrar</button>
+      <div id="resultsCount" class="results-count"></div>
+    </div>
+
+    <script async src="https://maps.googleapis.com/maps/api/js?key=(TUAPIKEYVAAQUI)&v=alpha&libraries=maps3d"></script>
+    <script>
+      let rutasBarcos = [];
+      let rutasBarcosOriginal = [];
+      let polylines = [];
+      let markers = [];
+      let selectedBarco = null;
+
+      function calcularDiferenciaTiempo(timestampInicio, timestampFin) {
+        const inicio = new Date(timestampInicio.replace(" ", "T"));
+        const fin = new Date(timestampFin.replace(" ", "T"));
+        const diferenciaMs = fin - inicio;
+        const diferenciaHoras = diferenciaMs / (1000 * 60 * 60);
+        return diferenciaHoras.toFixed(1);
+      }
+
+      function limpiarMapa() {
+        polylines.forEach(polyline => polyline.remove());
+        markers.forEach(marker => marker.remove());
+        polylines = [];
+        markers = [];
+      }
+
+      function dibujarRutas() {
+        limpiarMapa();
+        const map = document.querySelector('gmp-map-3d');
+
+        rutasBarcos.forEach((barco, index) => {
+          // Crear el elemento polilínea
+          const polyline = document.createElement('gmp-polyline-3d');
+          polyline.setAttribute('altitude-mode', 'clamp-to-ground');
+          polyline.setAttribute('stroke-color', barco.color || '#FF0000');
+          polyline.setAttribute('stroke-width', selectedBarco === null || selectedBarco === index ? '4' : '2');
+          polyline.setAttribute('stroke-opacity', selectedBarco === null || selectedBarco === index ? '1.0' : '0.3');
+          
+          // Agregar la polilínea al mapa
+          map.appendChild(polyline);
+          polylines.push(polyline);
+
+          // Configurar las coordenadas cuando el elemento esté definido
+          customElements.whenDefined(polyline.localName).then(() => {
+            // Convertir los puntos de la ruta al formato correcto
+            polyline.coordinates = barco.ruta.map(punto => ({
+              lat: parseFloat(punto.lat),
+              lng: parseFloat(punto.lng)
+            }));
+          });
+
+          // Agregar marcadores de inicio y fin
+          const markerInicio = document.createElement('gmp-marker-3d');
+          markerInicio.position = {
+            lat: parseFloat(barco.ruta[0].lat),
+            lng: parseFloat(barco.ruta[0].lng)
+          };
+          markerInicio.title = `Inicio - ${barco.nombre}\n${barco.ruta[0].timestamp}`;
+          map.appendChild(markerInicio);
+          markers.push(markerInicio);
+
+          const markerFin = document.createElement('gmp-marker-3d');
+          markerFin.position = {
+            lat: parseFloat(barco.ruta[barco.ruta.length - 1].lat),
+            lng: parseFloat(barco.ruta[barco.ruta.length - 1].lng)
+          };
+          markerFin.title = `Fin - ${barco.nombre}\n${barco.ruta[barco.ruta.length - 1].timestamp}`;
+          map.appendChild(markerFin);
+          markers.push(markerFin);
+
+          // Agregar evento de clic para la polilínea
+          polyline.addEventListener('click', () => {
+            seleccionarBarco(index, false);
+          });
+        });
+      }
+
+    function calcularDistancia(ruta) {
+      if (!ruta || ruta.length < 2) return 0;
+      let distanciaTotal = 0;
+      for (let i = 1; i < ruta.length; i++) {
+        const lat1 = parseFloat(ruta[i - 1].lat);
+        const lon1 = parseFloat(ruta[i - 1].lng);
+        const lat2 = parseFloat(ruta[i].lat);
+        const lon2 = parseFloat(ruta[i].lng);
+        
+        const R = 6371; // Radio de la Tierra en km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+        0.5 - Math.cos(dLat)/2 + 
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        (1 - Math.cos(dLon))/2;
+        distanciaTotal += R * 2 * Math.asin(Math.sqrt(a));
+      }
+      return distanciaTotal.toFixed(2);
+    }
+
+      function crearMenu() {
+        mostrarRutasFiltradas(rutasBarcos);
+      }
+
+      function aplicarFiltros() {
+        const origen = document.getElementById('origen').value.toLowerCase();
+        const destino = document.getElementById('destino').value.toLowerCase();
+        const fechaSalida = document.getElementById('fechaSalida').value;
+        const fechaLlegada = document.getElementById('fechaLlegada').value;
+        const tipo = document.getElementById('tipo').value.toLowerCase();
+
+        const rutasFiltradas = rutasBarcosOriginal.filter((barco) => {
+          const fechaSalidaBarco = barco.ruta[0].timestamp.split(" ")[0];
+          const fechaLlegadaBarco = barco.ruta[barco.ruta.length - 1].timestamp.split(" ")[0];
+          return (!origen || barco.origen.toLowerCase().includes(origen)) &&
+                 (!destino || barco.destino.toLowerCase().includes(destino)) &&
+                 (!fechaSalida || fechaSalidaBarco === fechaSalida) &&
+                 (!fechaLlegada || fechaLlegadaBarco === fechaLlegada) &&
+                 (!tipo || barco.tipo.toLowerCase().includes(tipo));
+        });
+
+        mostrarRutasFiltradas(rutasFiltradas);
+      }
+
+      function mostrarRutasFiltradas(rutas) {
+        const menu = document.getElementById('menu');
+        const origen = document.getElementById('origen')?.value || '';
+        const destino = document.getElementById('destino')?.value || '';
+        const fechaSalida = document.getElementById('fechaSalida')?.value || '';
+        const fechaLlegada = document.getElementById('fechaLlegada')?.value || '';
+        const tipo = document.getElementById('tipo')?.value || '';
+
+        menu.innerHTML = `
+          <div class="filter">
+            <label for="origen">Origen:</label>
+            <input type="text" id="origen" value="${origen}">
+          </div>
+          <div class="filter">
+            <label for="destino">Destino:</label>
+            <input type="text" id="destino" value="${destino}">
+          </div>
+          <div class="filter">
+            <label for="fechaSalida">Fecha de Salida:</label>
+            <input type="date" id="fechaSalida" value="${fechaSalida}">
+          </div>
+          <div class="filter">
+            <label for="fechaLlegada">Fecha de Llegada:</label>
+            <input type="date" id="fechaLlegada" value="${fechaLlegada}">
+          </div>
+          <div class="filter">
+            <label for="tipo">Tipo:</label>
+            <input type="text" id="tipo" value="${tipo}">
+          </div>
+          <button onclick="aplicarFiltros()">Filtrar</button>
+          <div id="resultsCount" class="results-count">Hay ${rutas.length} resultados</div>
+        `;
+
+        if (rutas.length === 0) {
+          limpiarMapa();
+        } else {
+          rutasBarcos = rutas;
+          rutas.forEach((barco, index) => {
+            const distancia = calcularDistancia(barco.ruta);
+            const barcoInfo = document.createElement('div');
+            barcoInfo.className = `barco-info ${selectedBarco === index ? 'selected' : ''}`;
+            
+            const flagOffset = 0x1F1E6;
+            const asciiOffset = 0x41;
+            const firstChar = String.fromCodePoint(barco.pabellon.charCodeAt(0) - asciiOffset + flagOffset);
+            const secondChar = String.fromCodePoint(barco.pabellon.charCodeAt(1) - asciiOffset + flagOffset);
+            const flag = firstChar + secondChar;
+
+            barcoInfo.innerHTML = `
+              <h3>${flag} ${barco.nombre}</h3>
+              <p><strong>Origen:</strong> ${barco.origen}</p>
+              <p><strong>Destino:</strong> ${barco.destino}</p>
+              <p><strong>Fecha de Salida:</strong> ${barco.ruta[0].timestamp}</p>
+              <p><strong>Fecha de Llegada:</strong> ${barco.ruta[barco.ruta.length - 1].timestamp}</p>
+              <p><strong>Diferencia de Tiempo:</strong> ${calcularDiferenciaTiempo(barco.ruta[0].timestamp, barco.ruta[barco.ruta.length - 1].timestamp)}h</p>
+              <p><strong>Distancia Total:</strong> ${distancia} km</p>
+              <p><strong>Tipo:</strong> ${barco.tipo}</p>
+            `;
+            barcoInfo.onclick = () => seleccionarBarco(index, true);
+            menu.appendChild(barcoInfo);
+          });
+
+          dibujarRutas();
+        }
+      }
+
+      function seleccionarBarco(index, fromMenu) {
+        selectedBarco = selectedBarco === index ? null : index;
+        dibujarRutas();
+        if (!fromMenu) {
+          mostrarRutasFiltradas(rutasBarcos);
+        }
+      }
+
+      // Cargar datos cuando se inicie la página
+      window.onload = function() {
+        const storedData = localStorage.getItem('rutasBarcos');
+        if (storedData) {
+          rutasBarcos = JSON.parse(storedData).barcos;
+          rutasBarcosOriginal = JSON.parse(storedData).barcos;
+          console.log('Rutas de barcos cargadas:', rutasBarcos);
+          dibujarRutas();
+          crearMenu();
+        } else {
+          console.error('No se encontraron datos en localStorage');
+        }
+      };
+    </script>
+  </body>
+</html>
