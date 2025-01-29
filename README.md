@@ -25,3 +25,7 @@ En la carpeta 2d está la representación clásica de un mapa plano. En ese mapa
 3d
 ------
 He experimentado un poco con las funciones experimentales de usar un globo en vez de mapa. En este mapa he pintado las zonas de piratería (Sudeste Asiátoco, este y oeste de África, y la zona central de América).
+
+Capturas
+------
+![Captura 3D](./Captura_3d.png)
