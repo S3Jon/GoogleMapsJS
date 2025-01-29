@@ -29,3 +29,7 @@ He experimentado un poco con las funciones experimentales de usar un globo en ve
 Capturas
 ------
 ![Captura 3D](./Captura_3d.png)
+
+![Captura 2D](./Captura_2d.png)
+
+En esta captura se demuestra las la ruta seleccionada se ve bien mientras que las no seleccionadas se transparentan
