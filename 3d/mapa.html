@@ -205,6 +205,100 @@
         mostrarRutasFiltradas(rutasFiltradas);
       }
 
+      function dibujarZonasPirateria() {
+        const map = document.querySelector('gmp-map-3d');
+        const polygon = document.createElement('gmp-polygon-3d');
+        
+        // Establecer atributos de estilo
+        polygon.setAttribute('altitude-mode', 'clamp-to-ground');
+        polygon.setAttribute('fill-color', 'rgba(255, 0, 0, 0.2)'); // Rojo semitransparente
+        polygon.setAttribute('stroke-color', 'rgba(255, 0, 0, 0.8)');
+        polygon.setAttribute('stroke-width', '2');
+        polygon.setAttribute('draws-occluded-segments', '');
+        
+        // Agregar el polígono al mapa
+        map.appendChild(polygon);
+
+        //Pirateria SE Asia
+        customElements.whenDefined(polygon.localName).then(() => {
+          polygon.outerCoordinates = [
+            { lat: 5.94881891566034, lng: 77.56485517528137 },
+            { lat: 15.663815271835254, lng: 80.37757659352306 },
+            { lat: 22.774225045521586, lng: 87.57668209998187 },
+            { lat: 23.08337468591659, lng: 128.09085153698783 },
+            { lat: -2.275348825395962, lng: 141.41700234977682 },
+            { lat: -10.362182954616511, lng: 140.2123884501309 },
+            { lat: -10.622676815410962, lng: 97.13974210388274 }
+          ];
+        });
+        
+        //Pirateria Este Africa
+        const polygon2 = document.createElement('gmp-polygon-3d');
+        polygon2.setAttribute('altitude-mode', 'clamp-to-ground');
+        polygon2.setAttribute('fill-color', 'rgba(255, 0, 0, 0.2)'); // Rojo semitransparente
+        polygon2.setAttribute('stroke-color', 'rgba(255, 0, 0, 0.8)');
+        polygon2.setAttribute('stroke-width', '2');
+        polygon2.setAttribute('draws-occluded-segments', '');
+
+        map.appendChild(polygon2);
+        customElements.whenDefined(polygon2.localName).then(() => {
+          polygon2.outerCoordinates = [
+            {lat: -15.343187861699136, lng: 40.680277934323634 },
+            { lat: -3.845320774349314, lng: 38.583560112626024 },
+            { lat: 14.46666727466379, lng: 42.627229952896954 },
+            { lat: 18.344833061098907, lng: 59.50081623227303 },
+            { lat: -1.551615488891703, lng: 63.49456446407802 },
+            { lat: -5.834972454400742, lng: 45.97199409703362}
+          ]
+        })
+
+        //Pirateria Oeste Africa
+        const polygon3 = document.createElement('gmp-polygon-3d');
+        polygon3.setAttribute('altitude-mode', 'clamp-to-ground');
+        polygon3.setAttribute('fill-color', 'rgba(255, 0, 0, 0.2)'); // Rojo semitransparente
+        polygon3.setAttribute('stroke-color', 'rgba(255, 0, 0, 0.8)');
+        polygon3.setAttribute('stroke-width', '2');
+        polygon3.setAttribute('draws-occluded-segments', '');
+
+        map.appendChild(polygon3);
+        customElements.whenDefined(polygon3.localName).then(() => {
+          polygon3.outerCoordinates = [
+            { lat: -14.401273484974325, lng: 13.486101906428722 },
+            { lat: -8.833789443317498, lng: 14.730766524691832},
+            { lat: 7.345143926663417, lng: 9.052702791770013 },
+            { lat: 13.642727073380177, lng: -16.6054820527249 },
+            { lat: 13.17898402027279, lng: -21.648222004917343 },
+            { lat: -0.03136480823953766, lng: -12.667559195918011 },
+            { lat: -2.539926176659846, lng: 3.2387571704465086 },
+            { lat: -13.411706639811825, lng: 4.038127048649852}
+          ]
+        })
+
+        //Pirateria Centro America
+        const polygon4 = document.createElement('gmp-polygon-3d');
+        polygon4.setAttribute('altitude-mode', 'clamp-to-ground');
+        polygon4.setAttribute('fill-color', 'rgba(255, 0, 0, 0.2)'); // Rojo semitransparente
+        polygon4.setAttribute('stroke-color', 'rgba(255, 0, 0, 0.8)');
+        polygon4.setAttribute('stroke-width', '2');
+        polygon4.setAttribute('draws-occluded-segments', '');
+
+        map.appendChild(polygon4);
+        customElements.whenDefined(polygon4.localName).then(() => {
+          polygon4.outerCoordinates = [
+            { lat: -12.200437764191836, lng: -77.20090814928504 },
+            { lat: 14.896084093095714, lng: -95.49519587988962 },
+            { lat: 22.667476370399342, lng: -92.1763207626869 },
+            { lat: 22.779473803415428, lng: -74.08440396525248 },
+            { lat: 12.89241694398438, lng: -61.375539010800814 },
+            { lat: 5.74808074671773, lng: -49.111890711868774 },
+            { lat: 3.5294380668728556, lng: -51.49986183278294 },
+            { lat: 8.598944108262874, lng: -72.2630683586976 },
+            { lat: -5.1632544642111675, lng: -78.73892269243805 }
+          ]
+        })
+
+      }
+
       function mostrarRutasFiltradas(rutas) {
         const menu = document.getElementById('menu');
         const origen = document.getElementById('origen')?.value || '';
@@ -243,7 +337,7 @@
         } else {
           rutasBarcos = rutas;
           rutas.forEach((barco, index) => {
-            const distancia = calcularDistancia(barco.ruta);
+            const distancia = calcularDistancia(barco.ruta); // Uso geodesica en vez de DistanceMatrix, menos consumo de API y carga más rápida
             const barcoInfo = document.createElement('div');
             barcoInfo.className = `barco-info ${selectedBarco === index ? 'selected' : ''}`;
             
@@ -288,6 +382,7 @@
           console.log('Rutas de barcos cargadas:', rutasBarcos);
           dibujarRutas();
           crearMenu();
+          dibujarZonasPirateria();
         } else {
           console.error('No se encontraron datos en localStorage');
         }
